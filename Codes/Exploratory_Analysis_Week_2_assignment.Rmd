@@ -1,0 +1,252 @@
+---
+title: "NLP Cleaning and Exploring Data"
+author: "Rishikesh Pillay"
+date: "8/20/2021"
+output: html_document
+---
+
+# Overview
+
+In this Markdown File I am going to Load data try to understand data. Do some cleaning and Exploratory analysis on data.
+
+Source :- '<https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip>'
+
+In below code I am downloading data if it is already not present and after unziping files in local system I am deleting zip file which I don't need anymore.
+
+# Downloading Data
+
+```{r Downloading Data, warning=FALSE}
+#Downloading Data
+
+fileURL <- "https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip"
+
+if(!dir.exists('../Coursera-SwiftKey/final/en_US/')){
+        dir.create('../Data')
+        download.file(fileURL, destfile = "../Coursera-SwiftKey.zip")
+        unzip("../Coursera-SwiftKey.zip", exdir = "../Coursera-SwiftKey")
+        file.remove('../Coursera-SwiftKey.zip')
+        
+}
+```
+
+Now I will load data using readlines .I am Loading just English language Data. That includes blog,news and twitter data files from US-English text files.
+
+# Loading Data
+
+```{r Loading Data, warning=FALSE, cache=TRUE}
+#Loading Data
+
+# Twitter Reading
+twitter_con <- file("../Coursera-SwiftKey/final/en_US/en_US.twitter.txt", 'r')
+twitter_lines <- readLines(twitter_con)
+close(twitter_con)
+
+# News
+news_con <- file("../Coursera-SwiftKey/final/en_US/en_US.news.txt", "r")
+news_lines <- readLines(news_con)
+close(news_con)
+
+# Blogs
+blog_con <- file("../Coursera-SwiftKey/final/en_US/en_US.blogs.txt", 'r')
+blog_lines <- readLines(blog_con)
+close(blog_con)
+```
+
+# Summarizing Data
+
+Using Head function on all sources for understanding data.
+
+```{r Head, echo=FALSE, paged.print=TRUE, comment=''}
+print('Twitter')
+print(head(twitter_lines,2))
+print('News')
+print(head(news_lines,2)) 
+print('Blog')
+print(head(blog_lines, 2))
+```
+
+```{r summarizing Data, comment='', paged.print=TRUE}
+
+library(stringi)
+
+summary <- data.frame(Source = c("Twitter", 'News', 'Blog'),
+                      File_size_mb= c(file.size('../Coursera-SwiftKey/final/en_US/en_US.twitter.txt')/1024^2, file.size('../Coursera-SwiftKey/final/en_US/en_US.news.txt')/1024^2, file.size('../Coursera-SwiftKey/final/en_US/en_US.blogs.txt')/1024^2),
+                      Number_of_entries = c(length(twitter_lines), length(news_lines), length(blog_lines)),
+                      Word_count = c(sum(stri_count_words(twitter_lines)), sum(stri_count_words(news_lines)), sum(stri_count_words(blog_lines))))
+
+print(summary)
+```
+
+# Cleaning and Sampling
+
+This dataset is fairly large. I don't necessarily need to load the entire dataset in to build my algorithms.
+
+## Basic Cleaning and Sampling
+
+Here I will Sample just 2% of data of all sources(twitter, blog and news). Also I tried to delete Raw files as there were very large ,we did sampling just to get rid of them and to free up RAM.
+
+```{r sampling, cache=TRUE, warning=FALSE}
+# Sampling using random binomial generation with just 2% probability
+
+set.seed(222)
+t <- rbinom(length(twitter_lines), 1, prob = .02)
+b <- rbinom(length(blog_lines), 1, prob = .02)
+n <- rbinom(length(news_lines), 1, prob = .02)
+
+#subsetting
+twitter <- subset(twitter_lines, as.logical(t))
+blog <- subset(blog_lines, as.logical(b))
+news <- subset(news_lines, as.logical(n))
+
+# Cleaning work space or Ram
+rm(list=setdiff(ls(), c("twitter","blog", 'news')))
+
+```
+
+## Cleaning with tm package
+
+After the sampling is created, I shall create a corpus and perform cleansing into the corpus. In cleansing process, we will make use of the tm package commands to remove any punctuation, covert all text into lower case, remove any numbering, remove any white-spaces, and remove hyperlinks (https) characters.
+
+```{r Cleaning, warning=FALSE, comment='', cache=TRUE, message=FALSE}
+# load tm package
+library(tm)
+library(quanteda)
+
+mycorpus <- VCorpus(VectorSource(c(twitter, news, blog)))
+#The result is a structure of type VCorpus (‘virtual corpus’ that is, loaded into memory)
+print(mycorpus)
+
+# perform data cleasing into "myCorpus"" variable
+toSpace <- content_transformer(function(x, pattern) gsub(pattern," ", x))
+
+# Removing hyperlink
+mycorpus <- tm_map(mycorpus, toSpace, "(f|ht)tp(s?)://(.*)[.][a-z]+")
+
+# Removing tag
+mycorpus <- tm_map(mycorpus, toSpace, "@[^\\s]+")
+# Making lowercase
+mycorpus <- tm_map(mycorpus, content_transformer(tolower))
+# Removing stopwords
+updatedStopwords <- c(stopwords('en'), "can", "will", "want", "just", "like") 
+mycorpus <- tm_map(mycorpus, removeWords, updatedStopwords)
+# Removing punctuation
+mycorpus <- tm_map(mycorpus, removePunctuation)
+# Removing digit
+mycorpus <- tm_map(mycorpus, removeNumbers)
+# Removing whitespace
+mycorpus <- tm_map(mycorpus, stripWhitespace)
+
+print(mycorpus)
+```
+
+# Exploratory Analysis
+
+To analyze the textual data, we use a Document-Term Matrix (DTM) representation: documents as the rows, terms/words as the columns, frequency of the term in the document as the entries. Because the number of unique words in the corpus the dimension can be large.
+
+```{r Ngram function}
+library(RWeka)
+
+options(mc.cores=1)
+
+getFreq <- function(tdm) {
+  freq <- sort(rowSums(as.matrix(tdm)), decreasing = TRUE)
+  return(data.frame(word = names(freq), freq = freq))
+}
+bigram <- function(x) NGramTokenizer(x, Weka_control(min = 2, max = 2))
+trigram <- function(x) NGramTokenizer(x, Weka_control(min = 3, max = 3))
+```
+
+Unigram ,Bigram and Trigram data
+
+```{r corpus , comment="", message=FALSE}
+library(tm)
+
+# Create the dtm from the corpus:
+corpus_dtm <- TermDocumentMatrix(mycorpus)
+freq1 <- getFreq(removeSparseTerms(corpus_dtm, 0.9999))
+
+# Create the dtm from the corpus: 
+corpus_dtm_bigram <- TermDocumentMatrix(mycorpus, control = list(tokenize = bigram))
+# Print out corpus_dtm_bigram data
+freq2 <- getFreq(removeSparseTerms(corpus_dtm_bigram, 0.9999))
+
+
+# Create the dtm from the corpus: 
+corpus_dtm_trigram <- TermDocumentMatrix(mycorpus, control = list(tokenize = trigram))
+freq3 <- getFreq(removeSparseTerms(corpus_dtm_trigram, 0.9999))
+
+
+```
+
+Also we used remove sparse term with sparsity treshold of 0.9999. Sparsity refers to the threshold of relative document frequency for a term, above which the term will be removed, then with our treshold, it will remove only terms that are more sparse than 0.9999.
+
+## Word cloud
+```{r wordcloud, warning=FALSE, cache=TRUE}
+library(RColorBrewer)
+library(wordcloud)
+
+# Wordcloud Just For Unigram
+set.seed(1234)
+wordcloud(words = freq1$word, freq = freq1$freq, min.freq = 1,
+max.words=200, random.order=FALSE, rot.per=0.35,
+colors=brewer.pal(8, "Dark2"))
+
+```
+
+Word Clouds for Bigram or trigram are not that useful as much as bar plots.
+
+Now I will plot barplot (top 10) of unigrams,bigrams and trigrams as. It is easy to understand barplots .
+
+## Barplot
+```{r barplots, message=FALSE}
+library(ggplot2)
+
+ggplot(freq1[1:10, ], aes(reorder(word,-freq), freq)) +
+        labs(x = 'Unigram', y = "Words Frequencies") +
+        theme(axis.text.x = element_text(
+                angle = 60,
+                size = 10,
+                hjust = 1
+        )) +
+        geom_bar(stat = "identity", fill = I("#3ED9ED")) +
+        coord_flip() +  ggtitle("Most frequent Unigram words") +
+        theme(plot.title = element_text(hjust = 0.5)) +
+        theme(plot.title = element_text(size = 15))
+
+#Bigram
+ggplot(freq2[1:10, ], aes(reorder(word,-freq), freq)) +
+        labs(x = 'Bigram', y = "Words Frequencies") +
+        theme(axis.text.x = element_text(
+                angle = 60,
+                size = 10,
+                hjust = 1
+        )) +
+        geom_bar(stat = "identity", fill = I("#3ED9ED")) +
+        coord_flip() +  ggtitle("Most frequent Bigram words") +
+        theme(plot.title = element_text(hjust = 0.5)) +
+        theme(plot.title = element_text(size = 15))
+
+# Trigram
+ggplot(freq3[1:10, ], aes(reorder(word,-freq), freq)) +
+        labs(x = 'Trigram', y = "Words Frequencies") +
+        theme(axis.text.x = element_text(
+                angle = 60,
+                size = 10,
+                hjust = 1
+        )) +
+        geom_bar(stat = "identity", fill = I("#3ED9ED")) +
+        coord_flip() +  ggtitle("Most frequent Trigram words") +
+        theme(plot.title = element_text(hjust = 0.5)) +
+        theme(plot.title = element_text(size = 15)) 
+
+```
+
+* We can see that Top Unigram contain 'one', 'get', 'time', 'Love'.
+* Intrestingly Bigram have all time related top words like 'Right now', 'last night', 'looking forward'
+* And Tigram consist of mostly wishes 'happy mothers day', 'happy new year ,'cinco de mayo '
+
+
+# Model Ideas
+
+I have done examining the dataset and get some interesting findings from the exploratory analysis. Now I are ready to train and create our first predictive model. Machine Learning is an iterative process where we preprocess the training data, then train and evaluate the model and repeat the steps again iteratively to get better performance model based on our evaluation metrics.
+In shiny app I try to implement prediction of words based on previous words typed by user.
