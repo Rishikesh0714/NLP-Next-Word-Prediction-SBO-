@@ -24,6 +24,17 @@ The word prediction algorithm used in my Next Word Prediction app is a simplifie
 ![Next Word Pediction (SBO)](https://user-images.githubusercontent.com/73766757/138612282-79f8784e-c3c2-4f32-8546-06948bf80277.png)
 
 
+## Notes / Learned
+
+- I used sbo package which was availble in R and These objects are a "raw" equivalent of a text predictor.
+
+- Also I didn't Removed Punctuation as it was indicating End of sentences in the model, employed for sentence tokenization (moreover, text belonging to different entries of the preprocessed input vector are understood to belong to different sentences).
+
+- I didn't remove stopwords as it is useful for predicting next word which is usually done in bag of words model  
+
+- Running time of Model Building sbo_predtable is  2.90852351586024  min.  Maxium time is taken for converting VCorpus to corpus in Model building  11.4243470152219  min 
+
+
 ## Contents
 
 ### Codes
@@ -37,6 +48,7 @@ The word prediction algorithm used in my Next Word Prediction app is a simplifie
  - Bar plots.R :- Code of bar plot 
  - Basic_Cleaning.R :- cleaning using tm package in R
  - cleaning with quanteda.R :- Trying to achieve cleaning using quanteda package
+
 
 ### Output
 - mycorpus.txt :- Corpus created after cleaning raw data
