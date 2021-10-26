@@ -41,7 +41,7 @@ The word prediction algorithm used in my Next Word Prediction app is a simplifie
 - Next_Word_Prediction_SBO :- App directory 
   - server.r, ui.r :- Codes of app Server and User interface is present here 
   - Next_Word_Prediction_SBO/Output/ :-  It contain file necessary for app sbo_model.rda & evaluate.rda which is actual model file and prediction over test data respecively also time.rda has time needed to running model in my system
-
+- Presentaion :- Presentation of app
   
  - Exploratory_Analysis_Week_2_assignment.Rmd :- In this Markdown File I did some cleaning and Exploratory analysis on data.\
  - Exploratory_Analysis_Week_2_assignment.html :- html output of above Rmarkdown file
